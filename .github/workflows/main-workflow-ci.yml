@@ -1,0 +1,57 @@
+name: Build and Test Java Main Branch
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  check-branch:
+    name: main-workflow-java
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request' && github.base_ref == 'main'
+    steps:
+      - name: Check branch and PR
+        run: |
+          echo "Event name: ${{ github.event_name }}"
+          echo "Base branch (target): ${{ github.base_ref }}"
+          echo "Source branch (head): ${{ github.head_ref }}"
+          echo "Github ref: ${{ github.ref }}"
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            if [ "${{ github.head_ref }}" = "PreProd" ] || [ "${{ github.head_ref }}" = "main" ]; then
+              echo "✅ Valid PR from 'PreProd' or 'main' branch."
+            else
+              echo "❌ Pull requests to 'main' are only allowed from 'PreProd' or 'main'."
+              exit 1
+            fi
+          elif [ "${{ github.event_name }}" = "push" ]; then
+            if [ "${{ github.ref }}" = "refs/heads/main" ]; then
+              echo "✅ Push to main branch allowed."
+            else
+              echo "❌ Pushes to main branch only allowed."
+              exit 1
+            fi
+          else
+            echo "❌ Unsupported event."
+            exit 1
+          fi
+
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Set up JDK
+        uses: actions/setup-java@v3
+        with:
+          distribution: temurin
+
+      - name: Build with Maven
+        run: mvn clean install
+
+      - name: Run tests
+        run: mvn test
+
+      - name: Package (optional)
+        run: mvn package
